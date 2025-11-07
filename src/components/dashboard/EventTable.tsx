@@ -24,7 +24,7 @@ import { useMemo, useState } from "react";
 export default function EventAnalytics({ events, fetchData }) {
   const [searchText, setSearchText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [dateRange, setDateRange] = useState({ from: null, to: null });
+  const [dateRange, setDateRange] = useState<{ from: any; to?: any }>({ from: null, to: null });
 
   // Extract unique categories
   const categories = [...new Set(events.map((e) => e.category))];
