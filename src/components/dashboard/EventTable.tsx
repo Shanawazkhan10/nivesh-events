@@ -1,153 +1,187 @@
-import React, { useState } from 'react';
-import Card, { CardContent, CardHeader, CardTitle } from '../ui/Card';
+"use client";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { format } from "date-fns";
+import dayjs from "dayjs";
+import { CalendarIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 
-interface EventTableProps {
-  events: Array<{
-    id: string;
-    name: string;
-    category: string;
-    created_at: string;
-    description?: string | null;
-  }>;
-  className?: string;
-}
+export default function EventAnalytics({ events, fetchData }) {
+  const [searchText, setSearchText] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [dateRange, setDateRange] = useState({ from: null, to: null });
 
-const EventTable: React.FC<EventTableProps> = ({ events, className = '' }) => {
-  const [sortField, setSortField] = useState<string>('created_at');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  // Extract unique categories
+  const categories = [...new Set(events.map((e) => e.category))];
 
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
+  // Filter logic
+  // const filteredEvents = useMemo(() => {
+  //   return events.filter((e) => {
+  //     const matchesName = e.name.toLowerCase().includes(searchText.toLowerCase());
+  //     const matchesCategory = selectedCategory ? e.category === selectedCategory : true;
+  //     const eventDate = dayjs(e.created_at);
+  //     const matchesDate =
+  //       dateRange.from && dateRange.to
+  //         ? eventDate.isAfter(dayjs(dateRange.from).startOf("day")) &&
+  //         eventDate.isBefore(dayjs(dateRange.to).endOf("day"))
+  //         : true;
+  //     return matchesName && matchesCategory && matchesDate;
+  //   });
+  // }, [searchText, selectedCategory, dateRange, events]);
 
-  const sortedEvents = [...events].sort((a, b) => {
-    let aValue = a[sortField as keyof typeof a];
-    let bValue = b[sortField as keyof typeof b];
-
-    if (sortField === 'created_at') {
-      aValue = new Date(aValue as string).getTime();
-      bValue = new Date(bValue as string).getTime();
-    }
-
-    if (aValue === null) return 1;
-    if (bValue === null) return -1;
-
-    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const getCategoryColor = (category: string) => {
-    const colors: Record<string, string> = {
-      'signup': 'bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-300',
-      'login': 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-300',
-      'purchase': 'bg-accent-100 text-accent-800 dark:bg-accent-900/30 dark:text-accent-300',
-      'page_view': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-      'click': 'bg-secondary-100 text-secondary-800 dark:bg-secondary-900/30 dark:text-secondary-300',
-    };
-
-    return colors[category?.toLowerCase()] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
-  };
+  // Chart data
+  // const topEvents = useMemo(() => {
+  //   return [...filteredEvents]
+  //     .map((e) => ({
+  //       name: e.name,
+  //       count: parseInt(e.description.replace(/\D/g, ""), 10),
+  //     }))
+  //     .sort((a, b) => b.count - a.count)
+  //     .slice(0, 5);
+  // }, [filteredEvents]);
 
   return (
-    <Card className={`h-full overflow-hidden ${className}`}>
-      <CardHeader>
-        <CardTitle>Recent Events</CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-800 text-left">
-              <tr>
-                <th
-                  className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
-                  onClick={() => handleSort('name')}
-                >
-                  <div className="flex items-center">
-                    Name
-                    {sortField === 'name' && (
-                      <span className="ml-1">
-                        {sortDirection === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
-                  onClick={() => handleSort('category')}
-                >
-                  <div className="flex items-center">
-                    Category
-                    {sortField === 'category' && (
-                      <span className="ml-1">
-                        {sortDirection === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
-                  onClick={() => handleSort('created_at')}
-                >
-                  <div className="flex items-center">
-                    Date
-                    {sortField === 'created_at' && (
-                      <span className="ml-1">
-                        {sortDirection === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {sortedEvents.length > 0 ? (
-                sortedEvents.map((event) => (
-                  <tr
-                    key={event.id}
-                    className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
-                  >
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                      <div className="font-medium">{event.name}</div>
-                      {event.description && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
-                          {event.description}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(event.category)}`}>
-                        {event.category}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(event.created_at)}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={3} className="px-6 py-4 text-sm text-center text-gray-500 dark:text-gray-400">
-                    No events found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
+    <div className="p-5 space-y-5">
+      <h2 className="text-2xl font-semibold">📊 Event Analytics Dashboard</h2>
 
-export default EventTable;
+      {/* Filters */}
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+        {/* <Input
+          placeholder="🔍 Search event name"
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+        /> */}
+
+        {/* <Select
+          onValueChange={setSelectedCategory}
+          value={selectedCategory || undefined}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="📂 Filter by category" />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((cat) => (
+              <SelectItem key={cat} value={cat}>
+                {cat}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select> */}
+
+        {/* Date Range Picker */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full justify-start text-left font-normal"
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateRange?.from ? (
+                dateRange?.to ? (
+                  <>
+                    {format(dateRange.from, "MMM d, yyyy")} -{" "}
+                    {format(dateRange.to, "MMM d, yyyy")}
+                  </>
+                ) : (
+                  format(dateRange.from, "MMM d, yyyy")
+                )
+              ) : (
+                <span>📅 Pick date range</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+
+          <PopoverContent align="start" className="p-0 w-auto">
+            <div className="flex flex-col space-y-2 p-3">
+              {/* Calendar */}
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+              />
+
+              {/* Submit button */}
+              <Button
+                onClick={() => fetchData(dateRange)}
+                // onClick={() => handleApplyDateRange()}
+                className="w-full mt-2"
+              >
+                Apply Filter
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+      </div>
+
+      {/* Chart */}
+      {/* <Card>
+        <CardHeader>
+          <CardTitle>🔥 Top 5 Most Triggered Events</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={topEvents}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card> */}
+
+      {/* Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>📋 All Events</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Event Name</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Created At</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {events.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.name}</TableCell>
+                  <TableCell>
+                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
+                      {item.category}
+                    </span>
+                  </TableCell>
+                  <TableCell>{item.description}</TableCell>
+                  <TableCell>
+                    {dayjs(item.created_at).format("DD MMM YYYY, hh:mm A")}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

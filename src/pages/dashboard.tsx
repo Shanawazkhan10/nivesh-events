@@ -12,126 +12,122 @@ const Dashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [eventCounts, setEventCounts] = useState<Record<string, number>>({});
   const hasFetched = useRef(false);
+  const fetchData = async (dateRangeParam?: { from: Date | null; to: Date | null }) => {
+    try {
+      const today = new Date();
+      const formattedToday = today.toISOString().split("T")[0];
 
+      // 🔍 Extract from/to safely from param or fallback to state
+      const startDate =
+        dateRangeParam?.from?.toISOString().split("T")[0]  ||
+        formattedToday;
 
+      const endDate =
+        dateRangeParam?.to?.toISOString().split("T")[0]  ||
+        formattedToday;
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+      console.log("📅 Using Dates =>", { startDate, endDate });
 
-        // In a real app, we'd fetch user-specific data
-        const userId = currentUser?.uid;
+      const res = await axios.get(
+        `https://trk.nivesh.com/api/events-summary?start=${startDate}&end=${endDate}`
+      );
 
-        // This is mock data for demonstration purposes
-        // In a real app, this would come from the Supabase database
-        const mockEventData = [
-          { id: '1', name: 'User Registration', category: 'Signup', created_at: '2025-03-01T12:00:00Z', description: 'New user registered via email' },
-          { id: '2', name: 'Product Purchase', category: 'Purchase', created_at: '2025-03-02T14:30:00Z', description: 'User purchased premium plan' },
-          { id: '3', name: 'Login Event', category: 'Login', created_at: '2025-03-03T09:15:00Z', description: 'User logged in from mobile device' },
-          { id: '4', name: 'Page View', category: 'Page_View', created_at: '2025-03-03T10:45:00Z', description: 'User viewed pricing page' },
-          { id: '5', name: 'Button Click', category: 'Click', created_at: '2025-03-04T16:20:00Z', description: 'User clicked sign up button' },
-          { id: '6', name: 'Login Event', category: 'Login', created_at: '2025-03-05T08:10:00Z', description: 'User logged in from desktop' },
-          { id: '7', name: 'Page View', category: 'Page_View', created_at: '2025-03-05T11:30:00Z', description: 'User viewed dashboard' },
-          { id: '8', name: 'User Registration', category: 'Signup', created_at: '2025-03-06T13:45:00Z', description: 'New user registered via Google' },
-          { id: '9', name: 'Product Purchase', category: 'Purchase', created_at: '2025-03-07T15:15:00Z', description: 'User upgraded to business plan' },
-          { id: '10', name: 'Button Click', category: 'Click', created_at: '2025-03-08T09:50:00Z', description: 'User clicked help button' },
-        ];
-        if (hasFetched.current) return;
+      console.log("✅ API Response:", JSON.stringify(res.data.data, null, 2));
 
-        hasFetched.current = true;
-        const fetchData = async () => {
-          try {
-            const res = await axios.get('/api/events-summary?start=2025-05-08&end=2025-05-08');
-            console.log('✅ API Response:', res.data); // 👈 This logs the data
-            // setSummaryData(res.data.data)
-            setEvents(res.data.data);
-            const counts: Record<string, number> = {};
-            res.data.data.forEach(event => {
-              const eventname = event?.eventname?.toLowerCase();
-              counts[eventname] = (counts?.[eventname] || 0) + 1;
-            });
-            setEventCounts(counts);
-          } catch (err) {
-            console.error('❌ API Error:', err);
-          }
-        };
+      const rawEvents = res.data.data || [];
 
-        fetchData();
-        // Count events by category
+      const formattedEvents = rawEvents.map((e: any, index: number) => ({
+        id: String(index + 1),
+        name: e.eventname || "Unknown Event",
+        category: e.eventname?.toLowerCase().replace(/\s+/g, "_") || "unknown",
+        created_at: e.event_date,
+        description: `Count: ${e.count}`,
+      }));
 
-        // In a real app, we would fetch from Supabase like this:
-        // const eventData = await fetchEvents(userId);
-        // const eventCountData = await fetchEventCounts(userId);
-        // setEvents(eventData);
-        // setEventCounts(eventCountData);
+      setEvents(formattedEvents);
 
-      } catch (err) {
-        console.error('Error loading dashboard data:', err);
-        setError('Failed to load dashboard data. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      // ✅ Count by event name
+      const counts: Record<string, number> = {};
+      rawEvents.forEach((event: any) => {
+        const eventname = event?.eventname?.toLowerCase();
+        counts[eventname] = (counts[eventname] || 0) + 1;
+      });
+      setEventCounts(counts);
+    } catch (err) {
+      console.error("❌ API Error:", err);
+    }
+  };
 
-    loadData();
-  }, [currentUser]);
+useEffect(() => {
+  const loadData = async () => {
+    try {
+      if (hasFetched.current) return; // ⛔ move this check to the TOP
+      setIsLoading(true);
+      setError(null);
+
+      await fetchData(); // ✅ wait for API call to finish
+      hasFetched.current = true;
+
+    } catch (err) {
+      console.error('Error loading dashboard data:', err);
+      setError('Failed to load dashboard data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  loadData();
+}, [currentUser]);
+
 
   // Prepare chart data
+  // 🧠 Step 1: Extract event labels and counts dynamically
+  const labels = events?.map((e) => e.name);
+  const dataValues = events?.map((e) => {
+    // description = "Count: 644" → extract number
+    const match = e.description.match(/\d+/);
+    return match ? parseInt(match[0]) : 0;
+  });
+
+  // 🧩 Step 2: Generate colors dynamically (so each event looks unique)
+  const generateColors = (count) =>
+    Array.from({ length: count }, (_, i) => {
+      const hue = (i * 37) % 360; // different hue each time
+      return `hsla(${hue}, 70%, 55%, 0.7)`;
+    });
+
+  const backgroundColors = generateColors(events?.length);
+  const borderColors = backgroundColors.map((c) =>
+    c.replace("0.7", "1") // solid version for border
+  );
+
+  // 🎨 Step 3: Create dynamic chart data
   const barChartData = {
-    labels: ['Signup', 'Login', 'Purchase', 'Page View', 'Click'],
+    labels,
     datasets: [
       {
-        label: 'Event Count',
-        data: [
-          eventCounts['signup'] || 0,
-          eventCounts['login'] || 0,
-          eventCounts['purchase'] || 0,
-          eventCounts['page_view'] || 0,
-          eventCounts['click'] || 0,
-        ],
-        backgroundColor: [
-          'rgba(66, 133, 244, 0.7)', // Google blue
-          'rgba(52, 168, 83, 0.7)',  // Google green
-          'rgba(251, 188, 5, 0.7)',  // Google yellow
-          'rgba(234, 67, 53, 0.7)',  // Google red
-          'rgba(102, 102, 102, 0.7)', // Gray
-        ],
+        label: "Event Count",
+        data: dataValues,
+        backgroundColor: backgroundColors,
+        borderColor: borderColors,
+        borderWidth: 1,
       },
     ],
   };
 
   const doughnutChartData = {
-    labels: ['Signup', 'Login', 'Purchase', 'Page View', 'Click'],
+    labels,
     datasets: [
       {
-        label: 'Event Distribution',
-        data: [
-          eventCounts['signup'] || 0,
-          eventCounts['login'] || 0,
-          eventCounts['purchase'] || 0,
-          eventCounts['page_view'] || 0,
-          eventCounts['click'] || 0,
-        ],
-        backgroundColor: [
-          'rgba(66, 133, 244, 0.7)', // Google blue
-          'rgba(52, 168, 83, 0.7)',  // Google green
-          'rgba(251, 188, 5, 0.7)',  // Google yellow
-          'rgba(234, 67, 53, 0.7)',  // Google red
-          'rgba(102, 102, 102, 0.7)', // Gray
-        ],
-        borderColor: [
-          'rgba(66, 133, 244, 1)',
-          'rgba(52, 168, 83, 1)',
-          'rgba(251, 188, 5, 1)',
-          'rgba(234, 67, 53, 1)',
-          'rgba(102, 102, 102, 1)',
-        ],
+        label: "Event Distribution",
+        data: dataValues,
+        backgroundColor: backgroundColors,
+        borderColor: borderColors,
         borderWidth: 1,
       },
     ],
   };
+
 
   if (isLoading) {
     return (
@@ -224,9 +220,8 @@ const Dashboard: React.FC = () => {
           data={doughnutChartData}
         />
       </div>
-
       {/* Recent Events Table */}
-      <EventTable events={events} />
+      <EventTable events={events} fetchData={(data) => fetchData(data)} />
     </div>
   );
 };

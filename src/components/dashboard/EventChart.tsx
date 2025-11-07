@@ -46,7 +46,7 @@ interface EventChartProps {
 
 const EventChart: React.FC<EventChartProps> = ({ type, title, data, className = '' }) => {
   const { isDarkMode } = useTheme();
-  
+
   const options = {
     responsive: true,
     maintainAspectRatio: false,
@@ -87,7 +87,6 @@ const EventChart: React.FC<EventChartProps> = ({ type, title, data, className = 
       },
     } : undefined,
   };
-
   return (
     <Card className={`h-full ${className}`}>
       <CardHeader>
